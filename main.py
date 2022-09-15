@@ -148,5 +148,5 @@ else:
             res = res + "\n" + "and " + person_res + "." # last person (\nand kevin is working at night at harper.)
 #### TWEET ####################################################################################
 
-# twitter_api.update_status(res)
+twitter_api.update_status(res)
 print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))
