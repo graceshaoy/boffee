@@ -1,14 +1,10 @@
 from http.client import NotConnected
 # from os import fdatasync
-import time
-import requests
 import datetime
-import pytz
 import os.path
-import pandas as pd
 
 import tweepy
-from config import bearer_token, api_key, api_key_secret, access_token, access_token_secret, cals, cafe_hours
+from config import bearer_token, api_key, api_key_secret, access_token, access_token_secret, cals, cafe_hours, path_prefix
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -33,7 +29,7 @@ if not creds or not creds.valid:
         creds.refresh(Request())
     else:
         flow = InstalledAppFlow.from_client_secrets_file(
-            'C:/Users/grace/Desktop/knowledge/tutorials/APIs/boffee/credentials.json', SCOPES)
+            path_prefix + 'credentials.json', SCOPES)
         creds = flow.run_local_server(port=0)
     # Save the credentials for the next run
     with open('token.json', 'w') as token:
@@ -59,7 +55,7 @@ def check_today(cal_id, verbose = False):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             date = start[:10]
-            if str(datetime.date.today()) == date:
+            if str(datetime.date.today()) == date and event['summary'] != "chd":
                 workingtoday = True
                 ## get the shift time
                 end = event['end'].get('dateTime', event['start'].get('date'))
@@ -117,7 +113,7 @@ def shift_nonspecific(whos_working, person, start, end):
                 start_period = time_periods[period]
             if end in period:
                 end_period = time_periods[period]
-        person_res = person + " is working " + start_period + " to " + end_period + " at " + cafe
+        person_res = person + " is working " + start_period + " to  the " + end_period + " at " + cafe
     return person_res
 
 def shift_to_sentence(person, specific = False):
