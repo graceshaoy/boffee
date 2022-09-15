@@ -92,9 +92,9 @@ def shift_nonspecific(whos_working, person, start, end):
     # opening closing
     if start <= opening and end >= closing:
         person_res = person + " is working all day at " + cafe
-    elif  start <= opening:
+    elif  start <= opening and end <= 12:
         person_res = person + " is opening at " + cafe
-    elif end >= closing:
+    elif end >= closing and start >=12:
         person_res = person + " is closing at " + cafe
     # morning afternoon evening
     elif start <= 10 and end < 13:
@@ -109,9 +109,13 @@ def shift_nonspecific(whos_working, person, start, end):
     else:
         time_periods = {{0,1,2,3,4,5,6,7,8}:"early morning", {9,10,11}:"late morning", {12,13,14}:"afternoon",{15}:"late afternoon",{16,17,18,19}:"evening",{20,21}:"night",{22,23,23}:"late night"}
         for period in time_periods:
-            if start in period:
+            if start <= opening:
+                start_period = "opening"
+            elif start in period:
                 start_period = time_periods[period]
-            if end in period:
+            if end >= closing:
+                end_period = "closing"
+            elif end in period:
                 end_period = time_periods[period]
         person_res = person + " is working " + start_period + " to  the " + end_period + " at " + cafe
     return person_res
