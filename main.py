@@ -44,8 +44,8 @@ def check_today(cal_id, verbose = False):
         service = build('calendar', 'v3', credentials=creds)
 
         # Call the Calendar API
-        now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-        events_result = service.events().list(calendarId=cal_id, timeMin=now,
+        today = datetime.datetime.today().isoformat() + 'Z'  # 'Z' indicates UTC time
+        events_result = service.events().list(calendarId=cal_id, timeMin=today,
                                                 maxResults=3, singleEvents=True,
                                                 orderBy='startTime').execute()
 
@@ -176,12 +176,22 @@ else:
         # print(person_res)
         if len(whos_working) == 1: # one person working
             res = res + person_res + "."
-        elif person == list(whos_working)[0]: # first person working (Today, \ngrace is working in the morning at gob,)
+        elif person == list(whos_working)[0]: # first person working (today, \ngrace is working in the morning at gob,)
             res = res + "\n" + person_res + ","
-        elif person != list(whos_working)[-1]: # not the first or the last person (\nsahar is closing at ex,)
+        elif person != list(whos_working)[-1]: # not the first or the last person (\nsam is closing at ex,)
             res = res + "\n" + person_res +","
         else:
             res = res + "\n" + "and " + person_res + "." # last person (\nand kevin is working at night at harper.)
 #### TWEET ####################################################################################
-twitter_api.update_status(res)
-print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))
+# res = "test -- tweeting a thread\none the quick brown fox jumped over the lazy dog\ntwo the quick brown fox jumped over the lazy dog\nthree the quick brown fox jumped over the lazy dog\nfour the quick brown fox jumped over the lazy dog\nfive the quick brown fox jumped over the lazy dog\nsix the quick brown fox jumped over the lazy dog"
+if len(res) > 280:
+    check = res[:272].splitlines(True)
+    separator = len(check[-1])
+    tweet1 = res[:272-separator] + "(cont...)"
+    tweet2 = res[272-separator:]
+    sendtweet = twitter_api.update_status(tweet1)
+    twitter_api.update_status(tweet2, in_reply_to_status_id = sendtweet.id, auto_populate_reply_metadata = True)
+    print(f"tweeted \"{tweet1}\n....\n{tweet2}\" at ".format(tweet1, tweet2) + str(datetime.datetime.now()))
+else:
+    twitter_api.update_status(res)
+    print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))
