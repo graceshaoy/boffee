@@ -39,7 +39,7 @@ def check_today(cal_id, verbose = False):
     """checks if there is an event today in the specified calender id. 
     if there is, it gets the start and end times of the event."""
     workingtoday = False
-    shift = None
+    shifts = []
     try:
         service = build('calendar', 'v3', credentials=creds)
 
@@ -61,7 +61,7 @@ def check_today(cal_id, verbose = False):
                 end = event['end'].get('dateTime', event['start'].get('date'))
                 start_hour = datetime.datetime.strptime(start, "%Y-%m-%dT%H:%M:%S%z")
                 end_hour = datetime.datetime.strptime(end, "%Y-%m-%dT%H:%M:%S%z")
-                shift = (start_hour, end_hour)
+                shifts.append((start_hour, end_hour))
                 if verbose:
                     print(event['start'],'(today)', event['summary'])
             else:
@@ -69,65 +69,81 @@ def check_today(cal_id, verbose = False):
                     print(event['start'], event['summary'])
     except HttpError as error:
         print('An error occurred: %s' % error)
-    return workingtoday, shift
+    return workingtoday, shifts
 
 # build dictionary of everyone's shifts today
 total_working = 0
 whos_working = {}
 specific = False
 for person in cals:
-    workingtoday, shift = check_today(person['id'])
+    workingtoday, shifts = check_today(person['id'])
     person['workingtoday'] = workingtoday
     total_working += person['workingtoday']
     if person['workingtoday']:
-        whos_working[person["name"]] = {"shift":shift, 'worksat':person['worksat']}
+        whos_working[person["name"]] = {"shifts":shifts, 'worksat':person['worksat']}
         # print(person["name"], "is working today.")
+        # if len(whos_working[person["name"]]["shifts"]) > 1: *!
+        #     simple_shifts = []
+        #     for i, s in enumerate(whos_working[person["name"]]["shifts"]):
+        #         if (whos_working[person["name"]]["shifts"][-1][1] - s[0]).total_seconds()/60 <= 60: # if previous shift ends less than an hr before start of current shift,
+        #             simple_shifts.append((whos_working[person["name"]]["shifts"][-1][0], s[1])) # simplify to one shift
+        #     whos_working[person["name"]]["shifts"] = simple_shifts
 
 #### BUILDING TWEET ############################################################################
+time_periods = {}
+for i in range(0,9):
+    time_periods[i] = (1,"early morning")
+for i in range(9,12):
+    time_periods[i] = (1.25,"late morning")
+for i in range(12,15):
+    time_periods[i] = (2,"afternoon")
+time_periods[15] = (2.25,"late afternoon")
+for i in range(16,20):
+    time_periods[i] = (3,"evening")
+for i in range(20,22):
+    time_periods[i] = (4,"night")
+for i in range(21,25):
+    time_periods[i] = (4.25,"late night")
+
 def shift_nonspecific(whos_working, person, start, end):
-    """turns shift hours into a sentence."""
+    """turns shift hours into words."""
     opening, closing = cafe_hours[str(whos_working[person]['worksat'])]
     start, end = start.hour, end.hour
-    cafe = whos_working[person]['worksat']
     # opening closing
     if start <= opening and end >= closing:
-        person_res = person + " is working all day at " + cafe
+        res = "all day"
     elif  start <= opening and end <= 12:
-        person_res = person + " is opening at " + cafe
+        res = "opening"
     elif end >= closing and start >=12:
-        person_res = person + " is closing at " + cafe
-    # morning afternoon evening
-    elif start <= 10 and end < 13:
-        person_res = person + " is working in the morning at " + cafe
-    elif start >= 12 and end <= 4:
-        person_res = person + " is working in the afternoon at " + cafe
-    elif start >= 5 and end <= 7:
-        person_res = person + " is working in the evening at " + cafe
-    elif start >= 7:
-        person_res = person + " is working at night at " + cafe
-    # morning to afternoon to evening *!
+        res = "closing"
+    # morning to afternoon to evening
     else:
-        time_periods = {{0,1,2,3,4,5,6,7,8}:"early morning", {9,10,11}:"late morning", {12,13,14}:"afternoon",{15}:"late afternoon",{16,17,18,19}:"evening",{20,21}:"night",{22,23,23}:"late night"}
-        for period in time_periods:
-            if start <= opening:
-                start_period = "opening"
-            elif start in period:
-                start_period = time_periods[period]
-            if end >= closing:
-                end_period = "closing"
-            elif end in period:
-                end_period = time_periods[period]
-        person_res = person + " is working " + start_period + " to  the " + end_period + " at " + cafe
-    return person_res
+        if start <= opening:
+            start_block, start_period = 0, "opening"
+        elif end >= closing:
+            end_block, end_period = 5, "closing"
+        else:
+            start_block, start_period = time_periods[start]
+            end_block, end_period = time_periods[end]
+        # simplifying
+        if start_block == end_block:
+            res = start_period
+        elif start_block - end_block == 0.25:
+            if start_block == 1:
+                res = "morning"
+            elif start_block == 2:
+                res = "afternoon"
+            elif start_block == 4:
+                res = "night"
+        else:
+            res = start_period + " to the " + end_period
+    return res
 
-def shift_to_sentence(person, specific = False):
-    """takes a person's shift and turns it into a sentence"""
-    start, end = whos_working[person]['shift'][0], whos_working[person]['shift'][1]
-    cafe = whos_working[person]['worksat']
-    res = ""
+def shift_to_sentence(person, start, end, specific = False):
+    """turns datetime into text"""
     if specific:
         start, end = start.strftime("%#I:%M%p"), end.strftime("%#I:%M%p")
-        res = person + " is working from " + start + " to " + end + " at " + cafe
+        res = start + " to " + end
     if not specific:
         res = shift_nonspecific(whos_working, person, start, end)
     return res
@@ -135,9 +151,29 @@ def shift_to_sentence(person, specific = False):
 if total_working == 0:
     res = "no friends are working today."
 else:
-    res = "Today, "
+    res = "today, "
     for person in whos_working:
-        person_res = shift_to_sentence(person, specific = False)
+        cafe = whos_working[person]['worksat']
+        person_res = person + " is "
+        shift_words = []
+        for i,s in enumerate(whos_working[person]["shifts"]):
+            start, end = s
+            shift_res = shift_to_sentence(person, start, end, specific = False)
+            if i == 0 and (shift_res in {"opening","closing","all day"}):
+                person_res = person_res + shift_res + " at " + cafe
+            elif len(whos_working[person]["shifts"]) == 1:
+                person_res = person_res + "working in the " + shift_res + " at " + cafe
+            elif i == 0:
+                person_res = person_res + "working in the " + shift_res
+            elif len(whos_working[person]["shifts"]) == 2:
+                if i == 1:
+                    person_res = person_res + " and " + shift_res + " at " + cafe
+            elif len(whos_working[person]["shifts"]) > 2:
+                if i == len(whos_working[person]["shifts"]) - 1:
+                    person_res = person_res + ", and " + shift_res + " at " + cafe
+                else:
+                    person_res = person_res + ", " + shift_res
+        # print(person_res)
         if len(whos_working) == 1: # one person working
             res = res + person_res + "."
         elif person == list(whos_working)[0]: # first person working (Today, \ngrace is working in the morning at gob,)
@@ -147,6 +183,5 @@ else:
         else:
             res = res + "\n" + "and " + person_res + "." # last person (\nand kevin is working at night at harper.)
 #### TWEET ####################################################################################
-
 twitter_api.update_status(res)
 print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))
