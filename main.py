@@ -73,24 +73,6 @@ def check_today(cal_id, verbose = False):
     return workingtoday, shifts
 
 # build dictionary of everyone's shifts today
-total_working = 0
-whos_working = {}
-specific = False
-for person in cals:
-    workingtoday, shifts = check_today(person['id'])
-    person['workingtoday'] = workingtoday
-    total_working += person['workingtoday']
-    if person['workingtoday']:
-        whos_working[person["name"]] = {"shifts":shifts, 'worksat':person['worksat']}
-        # print(person["name"], "is working today.")
-        if len(whos_working[person["name"]]["shifts"]) > 1:
-            simple_shifts = []
-            for i, s in enumerate(whos_working[person["name"]]["shifts"][:-1]):              
-                if (whos_working[person["name"]]["shifts"][i+1][1] - s[0]).total_seconds()/60 <= 60: # if previous shift ends less than an hr before start of current shift,
-                    simple_shifts.append((whos_working[person["name"]]["shifts"][i+1][0], s[1])) # simplify to one shift
-                    whos_working[person["name"]]["shifts"] = simple_shifts
-
-#### BUILDING TWEET ############################################################################
 time_periods = {}
 for i in range(0,9):
     time_periods[i] = (1,"early morning")
@@ -105,6 +87,25 @@ for i in range(20,22):
     time_periods[i] = (4,"night")
 for i in range(21,25):
     time_periods[i] = (4.25,"late night")
+total_working = 0
+whos_working = {}
+specific = False
+for person in cals:
+    workingtoday, shifts = check_today(person['id'])
+    person['workingtoday'] = workingtoday
+    total_working += person['workingtoday']
+    if person['workingtoday']:
+        whos_working[person["name"]] = {"shifts":shifts, 'worksat':person['worksat']}
+        # print(person["name"], "is working today.")
+        if len(whos_working[person["name"]]["shifts"]) > 1:
+            simple_shifts = []
+            for i, current in enumerate(whos_working[person["name"]]["shifts"][:-1]):
+                next = whos_working[person["name"]]["shifts"][i+1]
+                if time_periods[current[1].hour] == time_periods[next[0].hour]:
+                    simple_shifts.append((current[0],next[1]))
+                    whos_working[person["name"]]["shifts"] = simple_shifts
+
+#### BUILDING TWEET ############################################################################
 
 def shift_nonspecific(whos_working, person, start, end):
     """turns shift hours into words."""
@@ -127,9 +128,7 @@ def shift_nonspecific(whos_working, person, start, end):
             start_block, start_period = time_periods[start]
             end_block, end_period = time_periods[end]
         # simplifying
-        if start_block == end_block:
-            res = start_period
-        elif start_block - end_block == -0.25:
+        if start_block - end_block == -0.25:
             if start_block == 1:
                 res = "morning"
             elif start_block == 2:
