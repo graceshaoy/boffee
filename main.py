@@ -1,6 +1,7 @@
 from http.client import NotConnected
 # from os import fdatasync
 import datetime
+from operator import truediv
 import os.path
 
 import tweepy
@@ -82,12 +83,12 @@ for person in cals:
     if person['workingtoday']:
         whos_working[person["name"]] = {"shifts":shifts, 'worksat':person['worksat']}
         # print(person["name"], "is working today.")
-        # if len(whos_working[person["name"]]["shifts"]) > 1: *!
-        #     simple_shifts = []
-        #     for i, s in enumerate(whos_working[person["name"]]["shifts"]):
-        #         if (whos_working[person["name"]]["shifts"][-1][1] - s[0]).total_seconds()/60 <= 60: # if previous shift ends less than an hr before start of current shift,
-        #             simple_shifts.append((whos_working[person["name"]]["shifts"][-1][0], s[1])) # simplify to one shift
-        #     whos_working[person["name"]]["shifts"] = simple_shifts
+        if len(whos_working[person["name"]]["shifts"]) > 1:
+            simple_shifts = []
+            for i, s in enumerate(whos_working[person["name"]]["shifts"][:-1]):              
+                if (whos_working[person["name"]]["shifts"][i+1][1] - s[0]).total_seconds()/60 <= 60: # if previous shift ends less than an hr before start of current shift,
+                    simple_shifts.append((whos_working[person["name"]]["shifts"][i+1][0], s[1])) # simplify to one shift
+                    whos_working[person["name"]]["shifts"] = simple_shifts
 
 #### BUILDING TWEET ############################################################################
 time_periods = {}
@@ -128,7 +129,7 @@ def shift_nonspecific(whos_working, person, start, end):
         # simplifying
         if start_block == end_block:
             res = start_period
-        elif start_block - end_block == 0.25:
+        elif start_block - end_block == -0.25:
             if start_block == 1:
                 res = "morning"
             elif start_block == 2:
@@ -176,14 +177,14 @@ else:
         # print(person_res)
         if len(whos_working) == 1: # one person working
             res = res + person_res + "."
-        elif person == list(whos_working)[0]: # first person working (today, \ngrace is working in the morning at gob,)
+        elif person == list(whos_working)[0]: # first person working (Today, \ngrace is working in the morning at gob,)
             res = res + "\n" + person_res + ","
-        elif person != list(whos_working)[-1]: # not the first or the last person (\nsam is closing at ex,)
+        elif person != list(whos_working)[-1]: # not the first or the last person (\nsahar is closing at ex,)
             res = res + "\n" + person_res +","
         else:
             res = res + "\n" + "and " + person_res + "." # last person (\nand kevin is working at night at harper.)
 #### TWEET ####################################################################################
-# res = "test -- tweeting a thread\none the quick brown fox jumped over the lazy dog\ntwo the quick brown fox jumped over the lazy dog\nthree the quick brown fox jumped over the lazy dog\nfour the quick brown fox jumped over the lazy dog\nfive the quick brown fox jumped over the lazy dog\nsix the quick brown fox jumped over the lazy dog"
+# res = "Today, one is working in the evening and closing at gob, \ntwo is working in the evening and closing at gob, \nthree is working in the evening and closing at gob, \nfour is working in the evening and closing at gob, \nfive is working in the evening and closing at gob, \nand six is working in the evening and closing at gob."
 if len(res) > 280:
     check = res[:272].splitlines(True)
     separator = len(check[-1])
