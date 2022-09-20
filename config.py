@@ -18,3 +18,5 @@ for cafe in cafe_hours:
         raise ValueError ('cafe cannot open after it closes.')
     if cafe_hours[cafe][0] == cafe_hours[cafe][1]:
         raise ValueError('cafe cannot open when it closes.')
+
+username = "twitter username"
