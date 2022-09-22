@@ -161,8 +161,11 @@ else:
         for i,s in enumerate(whos_working[person]["shifts"]):
             start, end = s
             shift_res = shift_to_sentence(person, start, end, specific = False)
-            if i == 0 and (shift_res in {"opening","closing"}):
-                person_res = person_res + shift_res + " at " + cafe
+            if i == 0 and (shift_res in {"opening","closing","all day"}):
+                if shift_res == "all day":
+                    person_res = person_res + "working " + shift_res + " at " + cafe
+                else:
+                    person_res = person_res + shift_res + " at " + cafe
             elif len(whos_working[person]["shifts"]) == 1:
                 person_res = person_res + "working in the " + shift_res + " at " + cafe
             elif i == 0:
@@ -179,7 +182,7 @@ else:
         if len(whos_working) == 1: # one person working
             res = res + person_res + "."
         elif person == list(whos_working)[0]: # first person working (Today, \ngrace is working in the morning at gob,)
-            res = res + "\n" + person_res + ","
+            res = res + person_res + ","
         elif person != list(whos_working)[-1]: # not the first or the last person (\nsahar is closing at ex,)
             res = res + "\n" + person_res +","
         else:
