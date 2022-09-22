@@ -128,7 +128,9 @@ def shift_nonspecific(whos_working, person, start, end):
             start_block, start_period = time_periods[start]
             end_block, end_period = time_periods[end]
         # simplifying
-        if start_block - end_block == -0.25:
+        if start_block == end_block:
+            res = start_period
+        elif start_block - end_block == 0.25:
             if start_block == 1:
                 res = "morning"
             elif start_block == 2:
@@ -159,7 +161,7 @@ else:
         for i,s in enumerate(whos_working[person]["shifts"]):
             start, end = s
             shift_res = shift_to_sentence(person, start, end, specific = False)
-            if i == 0 and (shift_res in {"opening","closing","all day"}):
+            if i == 0 and (shift_res in {"opening","closing"}):
                 person_res = person_res + shift_res + " at " + cafe
             elif len(whos_working[person]["shifts"]) == 1:
                 person_res = person_res + "working in the " + shift_res + " at " + cafe
