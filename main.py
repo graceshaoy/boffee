@@ -87,6 +87,14 @@ for i in range(20,22):
     time_periods[i] = (4,"night")
 for i in range(21,25):
     time_periods[i] = (4.25,"late night")
+weekday = datetime.datetime.today().weekday()
+if weekday == 1: weekday = "M"
+if weekday == 2: weekday = "T"
+if weekday == 3: weekday = "W"
+if weekday == 4: weekday = "H"
+if weekday == 5: weekday = "F"
+if weekday == 6: weekday = "S"
+if weekday == 7: weekday = "U"
 total_working = 0
 whos_working = {}
 specific = False
@@ -109,7 +117,7 @@ for person in cals:
 
 def shift_nonspecific(whos_working, person, start, end):
     """turns shift hours into words."""
-    opening, closing = cafe_hours[str(whos_working[person]['worksat'])]
+    opening, closing = cafe_hours[str(whos_working[person]['worksat'])][weekday]
     start, end = start.hour, end.hour
     # opening closing
     if start <= opening and end >= closing:
