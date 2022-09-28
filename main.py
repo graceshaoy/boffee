@@ -97,7 +97,6 @@ if weekday == 5: weekday = "S"
 if weekday == 6: weekday = "U"
 total_working = 0
 whos_working = {}
-specific = False
 for person in cals:
     workingtoday, shifts = check_today(person['id'])
     person['workingtoday'] = workingtoday
@@ -158,12 +157,12 @@ def write_shift(person, start, end, specific = False):
         res = shift_nonspecific(whos_working, person, start, end)
     return res
 
-def write_pres(name, shifts, cafe):
+def write_pres(name, shifts, cafe, specific = False):
     for i,s in enumerate(shifts):
         if i == 0:
             person_res = name + " is "
         start, end = s
-        shift_res = write_shift(name, start, end, specific = False)
+        shift_res = write_shift(name, start, end, specific = specific)
         # grammar for opening / closing / all day
         if (shift_res.find("all day") != -1 or shift_res.find("opening") != -1 or shift_res.find("closing") != -1):
             if shift_res.find("to") != -1:
@@ -179,7 +178,10 @@ def write_pres(name, shifts, cafe):
                 person_res = person_res + shift_res
         # grammar for first / only shift
         elif len(shifts) == 1 or i == 0:
-            person_res = person_res + "working in the " + shift_res
+            person_res = person_res + "working "
+            if not specific:
+                person_res = person_res + "in the "
+            person_res = person_res + shift_res
         # grammar for second shift
         elif len(shifts) == 2:
             if i == 1:
