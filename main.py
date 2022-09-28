@@ -88,13 +88,13 @@ for i in range(20,22):
 for i in range(21,25):
     time_periods[i] = (4.25,"late night")
 weekday = datetime.datetime.today().weekday()
-if weekday == 1: weekday = "M"
-if weekday == 2: weekday = "T"
-if weekday == 3: weekday = "W"
-if weekday == 4: weekday = "H"
-if weekday == 5: weekday = "F"
-if weekday == 6: weekday = "S"
-if weekday == 7: weekday = "U"
+if weekday == 0: weekday = "M"
+if weekday == 1: weekday = "T"
+if weekday == 2: weekday = "W"
+if weekday == 3: weekday = "H"
+if weekday == 4: weekday = "F"
+if weekday == 5: weekday = "S"
+if weekday == 6: weekday = "U"
 total_working = 0
 whos_working = {}
 specific = False
@@ -112,7 +112,6 @@ for person in cals:
                 if time_periods[current[1].hour] == time_periods[next[0].hour]:
                     simple_shifts.append((current[0],next[1]))
                     whos_working[person["name"]]["shifts"] = simple_shifts
-
 #### BUILDING TWEET ############################################################################
 
 def shift_nonspecific(whos_working, person, start, end):
@@ -122,9 +121,9 @@ def shift_nonspecific(whos_working, person, start, end):
     # opening closing
     if start <= opening and end >= closing:
         res = "all day"
-    elif  start <= opening and end <= 12:
+    elif  start <= opening and end <= opening + 2:
         res = "opening"
-    elif end >= closing and start >=12:
+    elif end >= closing and start >= closing - 2:
         res = "closing"
     # morning to afternoon to evening
     else:
@@ -139,7 +138,7 @@ def shift_nonspecific(whos_working, person, start, end):
         # simplifying
         if start_block == end_block:
             res = start_period
-        elif start_block - end_block == 0.25:
+        elif start_block - end_block == -0.25:
             if start_block == 1:
                 res = "morning"
             elif start_block == 2:
@@ -170,23 +169,32 @@ else:
         for i,s in enumerate(whos_working[person]["shifts"]):
             start, end = s
             shift_res = shift_to_sentence(person, start, end, specific = False)
-            if i == 0 and (shift_res in {"opening","closing","all day"}): # *! change from working opening to the afternoon ?
-                if shift_res == "all day":
-                    person_res = person_res + "working " + shift_res + " at " + cafe
+            if (shift_res.find("all day") != -1 or shift_res.find("opening") != -1 or shift_res.find("closing") != -1):
+                if shift_res.find("to") != -1:
+                    if shift_res.find("opening") != -1:
+                        person_res = person_res + "working open " + shift_res[shift_res.find("to"):]
+                    if shift_res.find("closing") != -1:
+                        person_res = person_res + "working " + shift_res[:shift_res.find("to")] + "to close"
+                elif shift_res.find("opening") != -1 and len(whos_working[person]['shifts']) != 1:
+                    person_res = person_res + "working open"
+                elif shift_res == "all day":
+                    person_res = person_res + "working " + shift_res
                 else:
-                    person_res = person_res + shift_res + " at " + cafe
+                    person_res = person_res + shift_res
             elif len(whos_working[person]["shifts"]) == 1:
-                person_res = person_res + "working in the " + shift_res + " at " + cafe
+                person_res = person_res + "working in the " + shift_res
             elif i == 0:
                 person_res = person_res + "working in the " + shift_res
             elif len(whos_working[person]["shifts"]) == 2:
                 if i == 1:
-                    person_res = person_res + " and " + shift_res + " at " + cafe
+                    person_res = person_res + " and " + shift_res
             elif len(whos_working[person]["shifts"]) > 2:
                 if i == len(whos_working[person]["shifts"]) - 1:
-                    person_res = person_res + ", and " + shift_res + " at " + cafe
+                    person_res = person_res + ", and " + shift_res
                 else:
                     person_res = person_res + ", " + shift_res
+            if i == len(whos_working[person]["shifts"]) - 1:
+                person_res = person_res + " at " + cafe
         # print(person_res)
         if len(whos_working) == 1: # one person working
             res = res + person_res + "."
