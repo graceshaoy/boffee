@@ -149,7 +149,7 @@ def shift_nonspecific(whos_working, person, start, end):
             res = start_period + " to the " + end_period
     return res
 
-def shift_to_sentence(person, start, end, specific = False):
+def write_shift(person, start, end, specific = False):
     """turns datetime into text"""
     if specific:
         start, end = start.strftime("%#I:%M%p"), end.strftime("%#I:%M%p")
@@ -158,52 +158,72 @@ def shift_to_sentence(person, start, end, specific = False):
         res = shift_nonspecific(whos_working, person, start, end)
     return res
 
+def write_pres(name, shifts, cafe):
+    for i,s in enumerate(shifts):
+        if i == 0:
+            person_res = name + " is "
+        start, end = s
+        shift_res = write_shift(name, start, end, specific = False)
+        # grammar for opening / closing / all day
+        if (shift_res.find("all day") != -1 or shift_res.find("opening") != -1 or shift_res.find("closing") != -1):
+            if shift_res.find("to") != -1:
+                if shift_res.find("opening") != -1:
+                    person_res = person_res + "working open " + shift_res[shift_res.find("to"):]
+                if shift_res.find("closing") != -1:
+                    person_res = person_res + "working " + shift_res[:shift_res.find("to")] + "to close"
+            elif shift_res.find("opening") != -1 and len(shifts) != 1:
+                person_res = person_res + "working open"
+            elif shift_res == "all day":
+                person_res = person_res + "working " + shift_res
+            else:
+                person_res = person_res + shift_res
+        # grammar for first / only shift
+        elif len(shifts) == 1 or i == 0:
+            person_res = person_res + "working in the " + shift_res
+        # grammar for second shift
+        elif len(shifts) == 2:
+            if i == 1:
+                person_res = person_res + " and " + shift_res
+        # grammar for following shifts
+        elif len(shifts) > 2:
+            if i == len(shifts) - 1:
+                person_res = person_res + ", and " + shift_res
+            else:
+                person_res = person_res + ", " + shift_res
+        # at cafe
+        if i == len(shifts) - 1:
+            person_res = person_res + " at " + cafe
+    return person_res
+
+def write_tweet(pres_list):
+    for i,pres in enumerate(pres_list):
+        if i == 0:
+            res = "today, "
+        if len(pres_list) == 1: # only person
+            res = res + pres + "."
+        elif i == 0: # first person
+            res = res + pres + ","
+        elif i != len(pres_list) - 1: # inbtwn people
+            res = res + "\n" + pres +","
+        else:
+            res = res + "\n" + "and " + pres + "." # last people
+    return res
+
+def sort_helper(x):
+    return x['first_hour']
+
 if total_working == 0:
     res = "no friends are working today."
 else:
-    res = "today, "
-    for person in whos_working:
-        cafe = whos_working[person]['worksat']
-        person_res = person + " is "
-        shift_words = []
-        for i,s in enumerate(whos_working[person]["shifts"]):
-            start, end = s
-            shift_res = shift_to_sentence(person, start, end, specific = False)
-            if (shift_res.find("all day") != -1 or shift_res.find("opening") != -1 or shift_res.find("closing") != -1):
-                if shift_res.find("to") != -1:
-                    if shift_res.find("opening") != -1:
-                        person_res = person_res + "working open " + shift_res[shift_res.find("to"):]
-                    if shift_res.find("closing") != -1:
-                        person_res = person_res + "working " + shift_res[:shift_res.find("to")] + "to close"
-                elif shift_res.find("opening") != -1 and len(whos_working[person]['shifts']) != 1:
-                    person_res = person_res + "working open"
-                elif shift_res == "all day":
-                    person_res = person_res + "working " + shift_res
-                else:
-                    person_res = person_res + shift_res
-            elif len(whos_working[person]["shifts"]) == 1:
-                person_res = person_res + "working in the " + shift_res
-            elif i == 0:
-                person_res = person_res + "working in the " + shift_res
-            elif len(whos_working[person]["shifts"]) == 2:
-                if i == 1:
-                    person_res = person_res + " and " + shift_res
-            elif len(whos_working[person]["shifts"]) > 2:
-                if i == len(whos_working[person]["shifts"]) - 1:
-                    person_res = person_res + ", and " + shift_res
-                else:
-                    person_res = person_res + ", " + shift_res
-            if i == len(whos_working[person]["shifts"]) - 1:
-                person_res = person_res + " at " + cafe
-        # print(person_res)
-        if len(whos_working) == 1: # one person working
-            res = res + person_res + "."
-        elif person == list(whos_working)[0]: # first person working (Today, \ngrace is working in the morning at gob,)
-            res = res + person_res + ","
-        elif person != list(whos_working)[-1]: # not the first or the last person (\nsahar is closing at ex,)
-            res = res + "\n" + person_res +","
-        else:
-            res = res + "\n" + "and " + person_res + "." # last person (\nand kevin is working at night at harper.)
+    pres_dicts = []
+    for name in whos_working:
+        shifts = whos_working[name]['shifts']
+        cafe = whos_working[name]['worksat']
+        first_hour = shifts[0][0].hour
+        pres_dicts.append({'pres':write_pres(name, shifts, cafe), 'first_hour':first_hour})
+    pres_dicts.sort(key=sort_helper)
+    pres_list = [d['pres'] for d in pres_dicts]
+    res = write_tweet(pres_list)
 #### TWEET ####################################################################################
 # res = "Today, one is working in the evening and closing at gob, \ntwo is working in the evening and closing at gob, \nthree is working in the evening and closing at gob, \nfour is working in the evening and closing at gob, \nfive is working in the evening and closing at gob, \nand six is working in the evening and closing at gob."
 if len(res) > 280:
