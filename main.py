@@ -232,9 +232,9 @@ if len(res) > 280:
     separator = len(check[-1])
     tweet1 = res[:272-separator] + "(cont...)"
     tweet2 = res[272-separator:]
-    # sendtweet = twitter_api.update_status(tweet1)
-    # twitter_api.update_status(tweet2, in_reply_to_status_id = sendtweet.id, auto_populate_reply_metadata = True)
+    sendtweet = twitter_api.update_status(tweet1)
+    twitter_api.update_status(tweet2, in_reply_to_status_id = sendtweet.id, auto_populate_reply_metadata = True)
     print(f"tweeted \"{tweet1}\n....\n{tweet2}\" at ".format(tweet1, tweet2) + str(datetime.datetime.now()))
 else:
-    # twitter_api.update_status(res)
+    twitter_api.update_status(res)
     print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))
