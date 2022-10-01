@@ -36,7 +36,7 @@ if not creds or not creds.valid:
     with open('token.json', 'w') as token:
         token.write(creds.to_json())
 
-def check_today(cal_id, verbose = False):
+def check_tmw(cal_id, verbose = False):
     """checks if there is an event today in the specified calender id. 
     if there is, it gets the start and end times of the event."""
     workingtoday = False
@@ -45,8 +45,8 @@ def check_today(cal_id, verbose = False):
         service = build('calendar', 'v3', credentials=creds)
 
         # Call the Calendar API
-        today = datetime.datetime.today().isoformat() + 'Z'  # 'Z' indicates UTC time
-        events_result = service.events().list(calendarId=cal_id, timeMin=today,
+        tomorrow = (datetime.datetime.today() + datetime.timedelta(days=1)).isoformat() + 'Z'
+        events_result = service.events().list(calendarId=cal_id, timeMin=tomorrow,
                                                 maxResults=3, singleEvents=True,
                                                 orderBy='startTime').execute()
 
@@ -56,7 +56,7 @@ def check_today(cal_id, verbose = False):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             date = start[:10]
-            if str(datetime.date.today()) == date and event['summary'] != "chd":
+            if date == str(datetime.date.today() + datetime.timedelta(days=1)) and event['summary'] != "chd":
                 workingtoday = True
                 ## get the shift time
                 end = event['end'].get('dateTime', event['start'].get('date'))
@@ -98,7 +98,7 @@ if weekday == 6: weekday = "U"
 total_working = 0
 whos_working = {}
 for person in cals:
-    workingtoday, shifts = check_today(person['id'])
+    workingtoday, shifts = check_tmw(person['id'])
     person['workingtoday'] = workingtoday
     total_working += person['workingtoday']
     if person['workingtoday']:
@@ -112,7 +112,6 @@ for person in cals:
                     simple_shifts.append((current[0],next[1]))
                     whos_working[person["name"]]["shifts"] = simple_shifts
 #### BUILDING TWEET ############################################################################
-
 def shift_nonspecific(whos_working, person, start, end):
     """turns shift hours into words."""
     opening, closing = cafe_hours[str(whos_working[person]['worksat'])][weekday]
@@ -200,7 +199,7 @@ def write_pres(name, shifts, cafe, specific = False):
 def write_tweet(pres_list):
     for i,pres in enumerate(pres_list):
         if i == 0:
-            res = "today, "
+            res = "tomorrow, "
         if len(pres_list) == 1: # only person
             res = res + pres + "."
         elif i == 0: # first person
@@ -233,9 +232,9 @@ if len(res) > 280:
     separator = len(check[-1])
     tweet1 = res[:272-separator] + "(cont...)"
     tweet2 = res[272-separator:]
-    sendtweet = twitter_api.update_status(tweet1)
-    twitter_api.update_status(tweet2, in_reply_to_status_id = sendtweet.id, auto_populate_reply_metadata = True)
+    # sendtweet = twitter_api.update_status(tweet1)
+    # twitter_api.update_status(tweet2, in_reply_to_status_id = sendtweet.id, auto_populate_reply_metadata = True)
     print(f"tweeted \"{tweet1}\n....\n{tweet2}\" at ".format(tweet1, tweet2) + str(datetime.datetime.now()))
 else:
-    twitter_api.update_status(res)
+    # twitter_api.update_status(res)
     print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))
