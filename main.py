@@ -3,6 +3,7 @@ from http.client import NotConnected
 import datetime
 from operator import truediv
 import os.path
+import pickle
 
 import tweepy
 from config import bearer_token, api_key, api_key_secret, access_token, access_token_secret, cals, cafe_hours, path_prefix
@@ -21,6 +22,9 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
 #### GETTING INFO FROM GCAL #############################################################################
 creds = None
+path = 'C:\\Users\\grace\\Desktop\\for_me\\APIs\\boffee\\'
+os.chdir(path)
+
 # The file token.json stores the user's access and refresh tokens, and is created automatically when the authorization flow completes for the first time.
 if os.path.exists('token.json'):
     creds = Credentials.from_authorized_user_file('token.json', SCOPES)
@@ -30,23 +34,44 @@ if not creds or not creds.valid:
         creds.refresh(Request())
     else:
         flow = InstalledAppFlow.from_client_secrets_file(
-            path_prefix + 'credentials.json', SCOPES)
+            'credentials.json', SCOPES)
         creds = flow.run_local_server(port=0)
     # Save the credentials for the next run
     with open('token.json', 'w') as token:
         token.write(creds.to_json())
 
-def check_tmw(cal_id, verbose = False):
-    """checks if there is an event today in the specified calender id. 
+def tweeted_last_night(): # actually checking if im tweeting current day or next day
+    last_tweet_time = pickle.load(open("C:\\Users\\grace\\Desktop\\for_me\\APIs\\boffee\\last_tweet_time.pickle", "rb"))
+    last_hour, last_day = last_tweet_time.hour, last_tweet_time.day
+    now_hour, now_day = datetime.datetime.now().hour, datetime.datetime.now().day
+
+    if last_hour < 20 and now_hour <20 and last_day != now_day: # both before 8pm
+        return False
+    if last_hour >= 20 and now_hour >= 20 and last_day != now_day: # both after 8pm
+        return True
+    if last_day == now_day: # same day
+        if last_hour < 20 and now_hour >= 20: # last tweet before 8pm, now after 8pm
+            return True
+    return False
+
+boffee_ontime = tweeted_last_night()
+
+def check_day(cal_id, tomorrow = boffee_ontime, verbose = True):
+    """checks if there is an event in the specified calender id. 
     if there is, it gets the start and end times of the event."""
-    workingtoday = False
+    workingday = False
     shifts = []
     try:
         service = build('calendar', 'v3', credentials=creds)
 
         # Call the Calendar API
-        tomorrow = (datetime.datetime.today() + datetime.timedelta(days=1)).isoformat() + 'Z'
-        events_result = service.events().list(calendarId=cal_id, timeMin=tomorrow,
+        if tomorrow:
+            day = datetime.datetime.combine(datetime.date.today(), datetime.time(0,0)) + datetime.timedelta(days=1)
+        else:
+            day = datetime.datetime.combine(datetime.date.today(), datetime.time(0,0))
+        daystring = (day).isoformat() + 'Z'
+                
+        events_result = service.events().list(calendarId=cal_id, timeMin=daystring,
                                                 maxResults=3, singleEvents=True,
                                                 orderBy='startTime').execute()
 
@@ -56,8 +81,8 @@ def check_tmw(cal_id, verbose = False):
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             date = start[:10]
-            if date == str(datetime.date.today() + datetime.timedelta(days=1)) and event['summary'] != "chd":
-                workingtoday = True
+            if date == str(day.date()):
+                workingday = True
                 ## get the shift time
                 end = event['end'].get('dateTime', event['start'].get('date'))
                 start_hour = datetime.datetime.strptime(start, "%Y-%m-%dT%H:%M:%S%z")
@@ -70,7 +95,7 @@ def check_tmw(cal_id, verbose = False):
                     print(event['start'], event['summary'])
     except HttpError as error:
         print('An error occurred: %s' % error)
-    return workingtoday, shifts
+    return workingday, shifts
 
 # build dictionary of everyone's shifts today
 time_periods = {}
@@ -87,7 +112,7 @@ for i in range(20,22):
     time_periods[i] = (4,"night")
 for i in range(21,25):
     time_periods[i] = (4.25,"late night")
-weekday = datetime.datetime.today().weekday()
+weekday = (datetime.datetime.today() + datetime.timedelta(days=1)).weekday()
 if weekday == 0: weekday = "M"
 if weekday == 1: weekday = "T"
 if weekday == 2: weekday = "W"
@@ -98,10 +123,10 @@ if weekday == 6: weekday = "U"
 total_working = 0
 whos_working = {}
 for person in cals:
-    workingtoday, shifts = check_tmw(person['id'])
-    person['workingtoday'] = workingtoday
-    total_working += person['workingtoday']
-    if person['workingtoday']:
+    workingday, shifts = check_day(person['id'])
+    person['workingday'] = workingday
+    total_working += person['workingday']
+    if person['workingday']:
         whos_working[person["name"]] = {"shifts":shifts, 'worksat':person['worksat']}
         # print(person["name"], "is working today.")
         if len(whos_working[person["name"]]["shifts"]) > 1:
@@ -167,8 +192,10 @@ def write_pres(name, shifts, cafe, specific = False):
             if shift_res.find("to") != -1:
                 if shift_res.find("opening") != -1:
                     person_res = person_res + "working open " + shift_res[shift_res.find("to"):]
-                if shift_res.find("closing") != -1:
+                if shift_res.find("closing") != -1 and i==0:
                     person_res = person_res + "working " + shift_res[:shift_res.find("to")] + "to close"
+                if shift_res.find("closing") != -1 and i!=0:
+                    person_res = person_res + " and " + shift_res[:shift_res.find("to")] + "to close"
             elif shift_res.find("opening") != -1 and len(shifts) != 1:
                 person_res = person_res + "working open"
             elif shift_res == "all day":
@@ -196,10 +223,30 @@ def write_pres(name, shifts, cafe, specific = False):
             person_res = person_res + " at " + cafe
     return person_res
 
+def check_together(pres_list): #*! use bigrams
+    simple_pres_list = []
+    for i,pres in enumerate(pres_list[:-1]):
+        name, next_name = pres.split(" ")[0], pres_list[i+1].split(" ")[0]
+        pres_shift, next_pres_shift = pres.split("working")[1], pres_list[i+1].split("working")[1]
+        pres_shift, next_pres_shift = pres_shift.replace(" late","").replace(" early",""), next_pres_shift.replace(" late","").replace(" early","")
+        if pres_shift == next_pres_shift:
+            pres_shift = name + " and " + next_name + " are working" + pres_shift
+            next_pres_shift = ""
+            simple_pres_list.append(pres_shift)
+        else:
+            simple_pres_list.append(pres)
+    simple_pres_list = [x for x in simple_pres_list if x]
+    return simple_pres_list
+
 def write_tweet(pres_list):
+    # if len(pres_list) > 1:
+    #     pres_list = check_together(pres_list)
     for i,pres in enumerate(pres_list):
         if i == 0:
-            res = "tomorrow, "
+            if boffee_ontime:
+                res = "tomorrow, "
+            else:
+                res = "today (boffee slept early last night), "
         if len(pres_list) == 1: # only person
             res = res + pres + "."
         elif i == 0: # first person
@@ -214,7 +261,10 @@ def sort_helper(x):
     return x['first_hour']
 
 if total_working == 0:
-    res = "no friends are working today."
+    if boffee_ontime:
+        res = "no friends are working tomorrow."
+    else:
+        res = "today (boffee slept early last night), no friends are working."
 else:
     pres_dicts = []
     for name in whos_working:
@@ -225,6 +275,7 @@ else:
     pres_dicts.sort(key=sort_helper)
     pres_list = [d['pres'] for d in pres_dicts]
     res = write_tweet(pres_list)
+
 #### TWEET ####################################################################################
 # res = "Today, one is working in the evening and closing at gob, \ntwo is working in the evening and closing at gob, \nthree is working in the evening and closing at gob, \nfour is working in the evening and closing at gob, \nfive is working in the evening and closing at gob, \nand six is working in the evening and closing at gob."
 if len(res) > 280:
@@ -232,9 +283,11 @@ if len(res) > 280:
     separator = len(check[-1])
     tweet1 = res[:272-separator] + "(cont...)"
     tweet2 = res[272-separator:]
-    sendtweet = twitter_api.update_status(tweet1)
-    twitter_api.update_status(tweet2, in_reply_to_status_id = sendtweet.id, auto_populate_reply_metadata = True)
+    sendtweet = client.create_tweet(text=tweet1)
+    client.create_tweet(text=tweet2, in_reply_to_status_id = sendtweet.id, auto_populate_reply_metadata = True)
+    pickle.dump(datetime.datetime.now(), open("C:\\Users\\grace\\Desktop\\for_me\\APIs\\boffee\\last_tweet_time.pickle", "wb"))
     print(f"tweeted \"{tweet1}\n....\n{tweet2}\" at ".format(tweet1, tweet2) + str(datetime.datetime.now()))
 else:
-    twitter_api.update_status(res)
+    sendtweet = client.create_tweet(text=res)
+    pickle.dump(datetime.datetime.now(), open("C:\\Users\\grace\\Desktop\\for_me\\APIs\\boffee\\last_tweet_time.pickle", "wb"))
     print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))
