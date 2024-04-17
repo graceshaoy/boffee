@@ -56,7 +56,7 @@ def tweeted_last_night(): # actually checking if im tweeting current day or next
 
 boffee_ontime = tweeted_last_night()
 
-def check_day(cal_id, tomorrow = boffee_ontime, verbose = True):
+def check_day(cal_id, tomorrow = boffee_ontime, verbose = False):
     """checks if there is an event in the specified calender id. 
     if there is, it gets the start and end times of the event."""
     workingday = False
@@ -288,6 +288,6 @@ if len(res) > 280:
     pickle.dump(datetime.datetime.now(), open("C:\\Users\\grace\\Desktop\\for_me\\APIs\\boffee\\last_tweet_time.pickle", "wb"))
     print(f"tweeted \"{tweet1}\n....\n{tweet2}\" at ".format(tweet1, tweet2) + str(datetime.datetime.now()))
 else:
-    sendtweet = client.create_tweet(text=res)
-    pickle.dump(datetime.datetime.now(), open("C:\\Users\\grace\\Desktop\\for_me\\APIs\\boffee\\last_tweet_time.pickle", "wb"))
+    # sendtweet = client.create_tweet(text=res)
+    # pickle.dump(datetime.datetime.now(), open("C:\\Users\\grace\\Desktop\\for_me\\APIs\\boffee\\last_tweet_time.pickle", "wb"))
     print(f"tweeted \"{res}\" at ".format(res) + str(datetime.datetime.now()))

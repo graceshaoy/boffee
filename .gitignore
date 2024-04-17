@@ -1,7 +1,9 @@
 config.py
 edit.py
+scratch.ipynb
 token.json
 credentials.json
+UnlockScheduledTask.ps1
 
 # Created by https://www.toptal.com/developers/gitignore/api/windows,python,visualstudiocode,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,python,visualstudiocode,jupyternotebooks
